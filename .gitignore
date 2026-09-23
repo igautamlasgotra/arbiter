@@ -1,0 +1,29 @@
+# secrets
+.env
+*.key
+
+# personal documents - never commit (contains phone/email)
+Resume*.pdf
+*.docx
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# arbiter runtime artifacts
+.cache/
+traces/*.jsonl
+results/
+*.sqlite
+*.db
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
