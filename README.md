@@ -9,6 +9,10 @@ system decides to stop.
 
 7th Semester B.Tech CSE project, Shri Mata Vaishno Devi University, Katra.
 
+**Live demo: [arbiter-gules-two.vercel.app](https://arbiter-gules-two.vercel.app)** — the
+interface, the offline provider and replay of stored runs are open to anyone. Live runs
+execute model-written code, so they require the demonstration link (see Safety).
+
 ---
 
 ## What this actually studies
