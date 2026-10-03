@@ -3,7 +3,7 @@
 **Adaptive Multi-Agent System for Iterative Task Generation, Validation and Refinement**
 Gautam Lasgotra (23BCS032) · Chirag Attri (23BCS024) · Aniket Kundal (23BCS015)
 Guide: Dr. Sonika Gupta, SoCSE · SMVDU Katra · **3 October 2026**
-Repository: `github.com/igautamlasgotra/arbiter`
+Repository: `github.com/igautamlasgotra/arbiter` · Live demo: `arbiter-gules-two.vercel.app`
 
 ---
 
@@ -125,10 +125,19 @@ whose entire output is a comparison table has to be able to tell "the system is 
 
 ## 4. Live deployment
 
+**`https://arbiter-gules-two.vercel.app`**
+
 The demo is deployed on Vercel as a single Python function serving the same FastAPI
 application that runs locally, so the hosted demo and the laptop demo cannot drift apart.
 Fluid compute is enabled, which is what allows one request to stream Server-Sent Events for
 the length of a run instead of buffering until it ends.
+
+The deployment was verified by running an unseen task against it from a browser. The
+test-designer agent wrote five tests, the first generated program **failed every one of them
+(score 0.00)**, the decision policy chose `refine`, and the second attempt passed all five —
+2 iterations, 3 model calls, 2,830 tokens, 5.4 seconds. The generated program is executed in
+a sandboxed subprocess on the host, so the validator result is an execution outcome, not an
+opinion. The screenshot in Section 5.5 is that run.
 
 **Live runs are token-gated.** A public URL that executes model-written Python is a remote
 shell, so it is not offered openly. The demonstration link carries an authorisation token;
@@ -201,6 +210,10 @@ The web interface streams agent events over Server-Sent Events as they happen. T
 type any task and watch the roles, validator verdicts, iterations, LLM calls and token count
 update live. A replay mode re-streams a stored run with original timings, clearly labelled, so
 the demonstration survives a dead API key or venue wifi.
+
+Below: a live run on the deployed instance. The first attempt scores 0.00, the loop refines,
+the second attempt scores 1.00 and is accepted. Nothing is scripted — the task was typed into
+the box.
 
 ![Demo interface](img/ui.png)
 
