@@ -2,3 +2,4 @@
 
 uvicorn[standard]>=0.30   # local dev server; Vercel provides its own
 pytest>=8.2
+python-docx>=1.1          # docs/syn2docx.py: synopsis .docx from the same HTML
