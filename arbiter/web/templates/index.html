@@ -127,11 +127,30 @@ const $ = id => document.getElementById(id);
 const tl = $('timeline');
 let es = null;
 
-fetch('/api/health').then(r=>r.json()).then(h=>{
-  $('mode').textContent = h.live_mode_available ? 'live mode ready' : 'no API key — offline only';
+// The demo link carries ?k=<token>, which authorises live runs. Keep it for the
+// session so the panel can reload the page without losing access, and strip it
+// from the address bar so the token is not read off a projector.
+const TOKEN = (() => {
+  const u = new URL(location.href);
+  const k = u.searchParams.get('k');
+  try {
+    if (k) { sessionStorage.setItem('arbiter_token', k);
+             u.searchParams.delete('k');
+             history.replaceState({}, '', u.toString()); }
+    return sessionStorage.getItem('arbiter_token') || '';
+  } catch (_) { return k || ''; }
+})();
+
+const authHeaders = () => TOKEN ? {'X-Arbiter-Token': TOKEN} : {};
+
+fetch('/api/health', {headers: authHeaders()}).then(r=>r.json()).then(h=>{
+  $('mode').textContent = h.live_mode_available ? 'live mode ready' : 'offline mode';
   if(!h.live_mode_available){
     const b=$('banner'); b.className='banner warn';
-    b.textContent='No API key configured. Copy .env.example to .env and add ARBITER_DEMO_KEY to run live. "Offline demo" works without a key but uses a scripted provider — never use it for results.';
+    b.textContent = (h.auth_required && !h.authorised)
+      ? 'Public view. Live runs need the demo link, because a live run executes model-written code and spends API quota. "Offline demo" and replay work here and show the same loop.'
+      : 'No API key configured. Copy .env.example to .env and add ARBITER_DEMO_KEY to run live. "Offline demo" works without a key but uses a scripted provider — never use it for results.';
+    $('go').disabled = true;
   }
 }).catch(()=>{});
 
@@ -163,7 +182,8 @@ function start(url, body){
   if(es) es.close();
 
   fetch(url, {method: body?'POST':'GET',
-              headers: body?{'Content-Type':'application/json'}:{},
+              headers: body?{'Content-Type':'application/json', ...authHeaders()}
+                            :authHeaders(),
               body: body?JSON.stringify(body):undefined})
   .then(async resp=>{
     if(!resp.ok){ add('error','error',{text:'HTTP '+resp.status+' '+await resp.text()}); done(); return; }

@@ -1,0 +1,9 @@
+# keep the deployment small and never ship local state or secrets
+.env
+.cache/
+docs/
+tests/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.pdf

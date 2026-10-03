@@ -60,7 +60,12 @@ class ResponseCache:
         self.hits = 0
         self.misses = 0
         if self.enabled:
-            self.root.mkdir(parents=True, exist_ok=True)
+            try:
+                self.root.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                # Serverless hosts mount the deployment read-only. Losing the
+                # cache costs quota; crashing the demo costs the demo.
+                self.enabled = False
 
     def _path(self, key: str) -> Path:
         # shard by first 2 chars so directories stay small
@@ -88,12 +93,15 @@ class ResponseCache:
         if not self.enabled:
             return
         fp = self._path(key)
-        fp.parent.mkdir(parents=True, exist_ok=True)
         payload = response.model_dump()
         payload["cached"] = False  # store the original, mark on read
-        tmp = fp.with_suffix(".tmp")
-        tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(fp)  # atomic, so a killed run cannot leave a partial file
+        try:
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            tmp = fp.with_suffix(".tmp")
+            tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(fp)  # atomic, so a killed run cannot leave a partial file
+        except OSError:
+            self.enabled = False  # read-only disk: degrade, never fail the run
 
     @property
     def hit_rate(self) -> float:

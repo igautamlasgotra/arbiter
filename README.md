@@ -59,9 +59,12 @@ Task → Planner → ┌─ Generator ─→ Validators (tools first, critic sec
 ## Setup
 
 ```bash
-pip install -r requirements.txt
-cp .env.example .env          # then add your API keys
+pip install -r requirements-dev.txt   # runtime deps + pytest + uvicorn
+cp .env.example .env                  # then add your API keys
 ```
+
+`requirements.txt` holds only what the server needs at runtime, because that is
+the file the hosted deployment installs. Development tools are kept separate.
 
 Three Gemini keys can be listed in `ARBITER_GEMINI_KEYS`; the router round-robins
 them so three free-tier accounts behave like one with triple the daily quota.
@@ -71,7 +74,7 @@ experiment runner, so demo-day quota is always fresh.
 ## Running
 
 ```bash
-pytest -q                                    # 39 offline tests, no API key needed
+pytest -q                                    # 42 offline tests, no API key needed
 
 # live demo UI  ->  http://127.0.0.1:8000
 python -m uvicorn arbiter.web.app:app --reload
@@ -120,14 +123,38 @@ docs/              plan, brief
 tests/
 ```
 
+## Deployment
+
+The demo is deployed on Vercel as a single Python function (`api/index.py`
+re-exports the same FastAPI app `uvicorn` serves locally, so the hosted demo and
+the laptop demo cannot drift apart). `vercel.json` enables fluid compute, which
+is what allows a long-lived streaming response — an SSE run that emits events
+for a minute is not a normal request/response shape.
+
+Environment variables are set in the Vercel dashboard, never in the repo:
+
+| Variable | Purpose |
+|---|---|
+| `ARBITER_DEMO_KEY` | Gemini key reserved for the demo |
+| `ARBITER_DEMO_TOKEN` | Authorises live runs; see Safety below |
+| `ARBITER_ALLOW_EXEC` | Must be `1` for generated code to run at all |
+| `ARBITER_CACHE_DIR` | `/tmp/arbiter-cache` — the deployment is read-only elsewhere |
+
+Pushes to `main` redeploy automatically.
+
 ## Safety
 
-Generated code runs in a separate process with no inherited environment (so it
-cannot read API keys), a temp working directory, and a wall-clock timeout. POSIX
-CPU/memory limits are applied where available; Windows lacks them, so final
-experiment runs should be done under WSL or Docker. **Arbitrary code execution is
-never exposed on the public deployment** — the hosted demo serves the SQL and math
-families live and replays stored traces for code tasks.
+Generated code runs in a separate process with **no inherited environment**, so
+it cannot read API keys, in a temp working directory, under a wall-clock
+timeout. POSIX CPU/memory limits are applied where available; Windows lacks
+them, so final experiment runs should be done under WSL or Docker.
+
+A public URL that executes model-written Python is a remote shell, so the hosted
+demo does not offer one openly. Live runs require `ARBITER_DEMO_TOKEN`, carried
+in the demo link as `?k=…`. Without it a visitor still gets the full interface,
+the offline scripted provider and replay of stored runs — everything needed to
+see how the system behaves — but cannot execute code or spend API quota. The
+gate is covered by tests, not just by configuration.
 
 ## Team
 

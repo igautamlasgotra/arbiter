@@ -16,8 +16,17 @@ Three deliberate choices:
    key is dead or the venue wifi fails during the demo, the replay looks
    identical and is clearly labelled as a replay. Never bluff a live run.
 
-Arbitrary code execution is enabled only when ARBITER_ALLOW_EXEC=1, which is
-never set on a public deployment. See the security note in README.
+Code execution is controlled by two switches, because the public deployment and
+a laptop are not the same threat model:
+
+  ARBITER_ALLOW_EXEC   must be 1 before any generated program is run at all.
+  ARBITER_DEMO_TOKEN   when set, every *live* run must present that token.
+
+On the public host both are set: the deployment can execute code, but only for
+someone holding the demo link. Visitors without it still get the full interface,
+the offline scripted provider and replay of stored runs - and cannot spend the
+API quota or run code. Without the token gate a public URL that executes
+model-written Python is simply a remote shell, so it is not offered.
 """
 
 from __future__ import annotations
@@ -30,7 +39,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -45,6 +54,19 @@ app = FastAPI(title="ARBITER", docs_url="/api/docs")
 
 TEMPLATES = Path(__file__).parent / "templates"
 ALLOW_EXEC = os.getenv("ARBITER_ALLOW_EXEC", "1") == "1"
+DEMO_TOKEN = os.getenv("ARBITER_DEMO_TOKEN", "").strip()
+
+
+def _authorise_live_run(token: Optional[str]) -> None:
+    """Live runs spend real quota and execute real code. Gate them if asked."""
+    if not DEMO_TOKEN:
+        return  # local development: no token configured, no gate
+    if (token or "").strip() != DEMO_TOKEN:
+        raise HTTPException(
+            status_code=401,
+            detail="live runs on this deployment require the demo link. "
+            "Use 'Offline demo' or the replay view instead.",
+        )
 
 
 class RunRequest(BaseModel):
@@ -91,19 +113,27 @@ def index() -> str:
 
 
 @app.get("/api/health")
-def health() -> dict[str, Any]:
+def health(x_arbiter_token: Optional[str] = Header(default=None)) -> dict[str, Any]:
     keys_present = bool(os.getenv("ARBITER_DEMO_KEY") or os.getenv("ARBITER_GEMINI_KEYS"))
+    authorised = not DEMO_TOKEN or (x_arbiter_token or "").strip() == DEMO_TOKEN
     return {
         "ok": True,
-        "live_mode_available": keys_present,
+        "live_mode_available": keys_present and authorised,
+        "keys_present": keys_present,
+        "auth_required": bool(DEMO_TOKEN),
+        "authorised": authorised,
         "exec_enabled": ALLOW_EXEC,
         "traces": sorted(p.name for p in TRACE_DIR.glob("*.jsonl")) if TRACE_DIR.exists() else [],
     }
 
 
 @app.post("/api/run")
-def run(req: RunRequest) -> StreamingResponse:
+def run(
+    req: RunRequest, x_arbiter_token: Optional[str] = Header(default=None)
+) -> StreamingResponse:
     """Stream a live run as Server-Sent Events."""
+    if not req.mock:
+        _authorise_live_run(x_arbiter_token)
     if not ALLOW_EXEC and req.family == "code":
         raise HTTPException(
             status_code=403,

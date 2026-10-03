@@ -1,0 +1,4 @@
+-r requirements.txt
+
+uvicorn[standard]>=0.30   # local dev server; Vercel provides its own
+pytest>=8.2

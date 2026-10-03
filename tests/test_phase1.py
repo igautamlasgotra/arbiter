@@ -222,6 +222,66 @@ def test_replay_404s_on_missing_trace():
     assert c.get("/api/replay", params={"trace": "nope.jsonl"}).status_code == 404
 
 
+# ------------------------------------------- demo-token gate (public hosting)
+
+
+def _with_token(token, fn):
+    """Re-import the app module so the env var is read at import time."""
+    import importlib
+    import os
+
+    import arbiter.web.app as web
+
+    old = os.environ.get("ARBITER_DEMO_TOKEN")
+    os.environ["ARBITER_DEMO_TOKEN"] = token
+    try:
+        return fn(importlib.reload(web))
+    finally:
+        if old is None:
+            os.environ.pop("ARBITER_DEMO_TOKEN", None)
+        else:
+            os.environ["ARBITER_DEMO_TOKEN"] = old
+        importlib.reload(web)
+
+
+def test_live_run_rejected_without_demo_token():
+    """A public URL that executes model-written code must not be open."""
+
+    def check(web):
+        r = TestClient(web.app).post(
+            "/api/run", json={"task": "x", "family": "code", "mock": False}
+        )
+        assert r.status_code == 401
+
+    _with_token("s3cret", check)
+
+
+def test_offline_run_allowed_without_demo_token():
+    """The gate protects quota and execution, not the demonstration itself."""
+
+    def check(web):
+        c = TestClient(web.app)
+        with c.stream(
+            "POST", "/api/run",
+            json={"task": "double a number", "family": "code",
+                  "condition": "B", "mock": True},
+        ) as resp:
+            body = "".join(resp.iter_text())
+        assert "event: final" in body
+
+    _with_token("s3cret", check)
+
+
+def test_health_reports_unauthorised_without_token():
+    def check(web):
+        h = TestClient(web.app).get("/api/health").json()
+        assert h["auth_required"] is True
+        assert h["authorised"] is False
+        assert h["live_mode_available"] is False
+
+    _with_token("s3cret", check)
+
+
 # ------------------------------------------------------- mock provider
 
 

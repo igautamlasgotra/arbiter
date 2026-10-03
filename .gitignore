@@ -18,6 +18,10 @@ venv/
 # arbiter runtime artifacts
 .cache/
 traces/*.jsonl
+# ...but the measured smoke results and the trace the hosted demo replays are
+# part of the record and ship with the repo
+!traces/smoke.jsonl
+!traces/demo.jsonl
 results/
 *.sqlite
 *.db
