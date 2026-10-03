@@ -74,6 +74,7 @@ class RunRequest(BaseModel):
     family: str = "code"
     condition: str = "B"
     mock: bool = False
+    expected: str = ""   # MATH only: the answer the run is checked against
 
 
 def _sse(event: str, payload: dict[str, Any]) -> str:
@@ -152,7 +153,12 @@ def run(
     def worker() -> None:
         try:
             router = _router(req.mock)
-            task = Task(task_id=f"live-{int(time.time())}", family=family, prompt=req.task)
+            task = Task(
+                task_id=f"live-{int(time.time())}",
+                family=family,
+                prompt=req.task,
+                gold_answer=req.expected.strip() or None,
+            )
 
             state = RunState(
                 task=task,
@@ -160,6 +166,24 @@ def run(
                 budget=Budget(),
                 on_event=lambda e, st: q.put(_event_payload(e, st)),
             )
+
+            # The math validator compares against a known answer and has nothing
+            # else to go on - that weakness is the point of the family, but it
+            # means a typed task must come with the answer or nothing can be
+            # checked at all.
+            if family is Family.MATH and not task.gold_answer:
+                q.put(
+                    {
+                        "kind": "unsupported",
+                        "summary": "A math task needs the expected answer to check "
+                        "against. This family is deliberately the weakest verifier "
+                        "in the study: it can only say right or wrong, never which "
+                        "step was wrong. Enter the answer in the field beside the "
+                        "task, or use the code family.",
+                    }
+                )
+                q.put(sentinel)
+                return
 
             # An unseen task has no tests. The test designer writes them first;
             # without this the validator has nothing to check against.

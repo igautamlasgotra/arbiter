@@ -88,6 +88,13 @@
             <option value="math">math — validated by answer match</option>
           </select>
         </div>
+        <div id="expected-wrap" style="display:none">
+          <label>Expected answer</label>
+          <input id="expected" type="text" placeholder="e.g. 16"
+                 style="width:100%;padding:9px 10px;border-radius:7px;
+                        border:1px solid var(--line);background:var(--card);
+                        color:var(--fg);font-family:inherit;font-size:13px">
+        </div>
         <div>
           <label>Condition</label>
           <select id="condition">
@@ -239,13 +246,23 @@ function handle(ev, d){
 
 function done(){ $('go').disabled=false; $('offline').disabled=false; }
 
-$('go').onclick = () => start('/api/run', {
-  task:$('task').value, family:$('family').value,
-  condition:$('condition').value, mock:false});
+// The math validator can only compare against a known answer, so ask for one.
+function syncFamily(){
+  $('expected-wrap').style.display = $('family').value === 'math' ? '' : 'none';
+}
+$('family').onchange = syncFamily;
+syncFamily();
 
-$('offline').onclick = () => start('/api/run', {
-  task:$('task').value, family:$('family').value,
-  condition:$('condition').value, mock:true});
+const payload = mock => ({
+  task: $('task').value,
+  family: $('family').value,
+  condition: $('condition').value,
+  expected: $('expected').value,
+  mock: mock,
+});
+
+$('go').onclick = () => start('/api/run', payload(false));
+$('offline').onclick = () => start('/api/run', payload(true));
 </script>
 </body>
 </html>

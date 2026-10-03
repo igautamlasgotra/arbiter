@@ -283,6 +283,19 @@ def test_offline_run_streams_to_completion():
     assert "event: final" in body
 
 
+def test_math_run_without_an_expected_answer_is_declined():
+    """answer_match has nothing to compare to, so say so instead of failing."""
+    c = TestClient(app)
+    with c.stream(
+        "POST", "/api/run",
+        json={"task": "7 pens at 12 rupees, paid 100, change?",
+              "family": "math", "condition": "B", "mock": True},
+    ) as resp:
+        body = "".join(resp.iter_text())
+    assert "event: unsupported" in body
+    assert "expected answer" in body.lower()
+
+
 def test_replay_404s_on_missing_trace():
     c = TestClient(app)
     assert c.get("/api/replay", params={"trace": "nope.jsonl"}).status_code == 404
