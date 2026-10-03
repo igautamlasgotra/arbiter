@@ -13,7 +13,7 @@ The core system is **built, deployed and measured**. An unseen task typed at run
 answered by a real multi-agent loop: tests are designed, a solution is generated, the solution
 is executed against those tests, failures are fed back, and the solution is revised until it
 passes or the budget stops it. The loop, the validators, the budget governor, all five
-baseline conditions and the live web interface are complete and covered by **42 automated
+baseline conditions and the live web interface are complete and covered by **48 automated
 tests that run offline**. The demo is hosted publicly so it can be opened from any machine.
 
 The first real measured runs are in Section 3. They are from a five-task smoke set, not the
@@ -83,10 +83,10 @@ committed to the repository).
 | Condition | n | Pass rate | Mean tokens | Mean LLM calls |
 |---|---|---|---|---|
 | A — single agent | 5 | 100% | 240 | 1.0 |
-| A+ — budget-matched single agent | 5 | 100% | 431 | 1.6 |
+| A+ — budget-matched single agent | 5 | 100% | 891 | 3.8 |
 | B — generator ↔ validator loop | 5 | 100% | 240 | 1.0 |
 | C — fixed pipeline | 5 | 100% | 240 | 1.0 |
-| **D — ARBITER adaptive** | 5 | 100% | **561** | 2.0 |
+| **D — ARBITER adaptive** | 5 | 100% | **725** | 2.0 |
 
 ### 3.1 What this does and does not show
 
@@ -97,13 +97,24 @@ correct conclusion is that the measurement pipeline works end to end, not that t
 are equivalent.
 
 What the cost column does already show is the shape of the problem the project exists to
-study. At identical correctness, **the adaptive condition spent 2.3× the tokens of the single
-agent** (561 vs 240) because its planner adds a call before any work begins. If that gap does
+study. At identical correctness, **the adaptive condition spent 3.0× the tokens of the single
+agent** (725 vs 240) because its planner adds a call before any work begins. If that gap does
 not buy correctness on harder tasks, it is a cost with no return — which is precisely the
 deflationary finding of Tran & Kiela (2025) that this project is designed to test rather than
 assume. Phase 3 runs the same comparison on tasks hard enough to separate the conditions.
 
-### 3.2 The validator caught a defect in our own benchmark
+### 3.2 Two defects the system's own output exposed
+
+Both are written up in full in `ARBITER_SYSTEM_REPORT.pdf`; in short:
+
+- **Condition D was collapsing into the one-shot baseline.** Its planner requested a
+  single iteration on every code task, so the adaptive condition discarded the executed-test
+  feedback it had itself called trustworthy. The cause was our prompt, which asked for
+  cost-awareness without saying that a role costs a call on every task while an iteration
+  costs nothing unless the attempt fails. Fixed, and D now refines.
+- **A benchmark task was self-contradictory**, described next.
+
+### 3.3 The validator caught a defect in our own benchmark
 
 On the first sweep, one task (`smoke_code_3`, run-length encoding) scored **0.75 under every
 condition** — the same partial score for all five, which is itself a signal: a model failure
@@ -266,5 +277,5 @@ a limitation rather than hidden, and it is itself part of the result.
 
 ---
 
-**Verification:** `pytest -q` → 42 passed, offline, no API key required.
+**Verification:** `pytest -q` → 48 passed, offline, no API key required.
 **Run the demo:** `python -m uvicorn arbiter.web.app:app --reload` → `http://127.0.0.1:8000`

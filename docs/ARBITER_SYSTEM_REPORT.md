@@ -273,10 +273,10 @@ from *"the measurement is wrong"*.
 | Condition | n | Pass rate | Mean tokens | Mean calls |
 |---|---|---|---|---|
 | A — single agent | 5 | 100% | 240 | 1.0 |
-| A+ — budget-matched single | 5 | 100% | 431 | 1.6 |
+| A+ — budget-matched single | 5 | 100% | 891 | 3.8 |
 | B — generator ↔ validator | 5 | 100% | 240 | 1.0 |
 | C — fixed pipeline | 5 | 100% | 240 | 1.0 |
-| **D — adaptive** | 5 | 100% | **561** | 2.0 |
+| **D — adaptive** | 5 | 100% | **725** | 2.0 |
 
 **Read this honestly.** Every condition solves every task, so these numbers
 **cannot separate the conditions on correctness**. The smoke set is a development
@@ -285,12 +285,60 @@ what a smoke set is for. The correct conclusion is that the measurement pipeline
 works end to end.
 
 What the cost column already shows is the shape of the problem: at identical
-correctness, **the adaptive condition spent 2.3× the tokens of the single agent**,
-because its planner adds a call before any work begins. If that gap does not buy
+correctness, **the adaptive condition spent 3.0× the tokens of the single agent**
+(725 against 240), because its planner adds a call before any work begins, and A+
+spends its matched budget on repeated sampling. If that gap does not buy
 correctness on harder tasks, it is cost with no return — exactly the deflationary
 result this project exists to test rather than assume.
 
-### 5.5 Engineering status
+### 5.5 Condition D was quietly broken, and the cause was our prompt
+
+Testing all four conditions on the same task exposed something the benchmark had
+hidden. On a task where B and C both succeeded, **D failed** — the adaptive
+condition losing to the fixed one it is supposed to improve on.
+
+The planner's *reasoning* was sound. Asked to allocate effort, it correctly
+observed that a code task has a strong automatic verifier and therefore does not
+need an LLM critic. But it also requested **`max_iterations = 1`** — measured
+directly, on every code task, every time. So D generated once, discarded the
+executed-test feedback it had just called trustworthy, and collapsed into the
+one-shot baseline. D could never beat B, by construction.
+
+The defect was in what we told it. The prompt asked for cost-awareness without
+saying that **roles and iterations do not cost the same way**:
+
+| | Cost |
+|---|---|
+| A **role** | One model call on every task, needed or not — unconditional |
+| An **iteration** | Nothing unless the attempt fails — the budget is a ceiling, not a plan |
+
+Allowing four iterations on a task solved at the first attempt costs exactly what
+allowing one costs. **Refusing an iteration is therefore never the cheaper
+choice.** The prompt now states that distinction — strict with roles, generous
+with iterations — with a floor behind it, set higher where the verifier is strong
+and its feedback is worth acting on.
+
+| Task | Before | After |
+|---|---|---|
+| Hard code task | `['generator']`, 1 iteration | `['generator']`, **4 iterations** |
+| Easy code task | `['generator']`, 1 iteration | `['generator']`, **4 iterations** |
+| Maths task | `['generator', 'critic']`, 2 | `['generator', 'critic']`, 2 *(already correct)* |
+
+The maths row matters: the planner adds a critic there and not on code, because
+the verifier is weak and an opinion is worth something. **That family-sensitive
+behaviour is what condition D exists to demonstrate**, and it was working all
+along — it was only the iteration budget that was wrong.
+
+D now solves the task that exposed the bug: `0.80 → refine → 1.00 → accepted`.
+
+Two consequences recorded honestly. The previously published D figures measured
+the old planner, and A+ was budget-matched against them, so both conditions were
+deleted and re-run — A+ now matches a 725-token budget rather than 561. And the
+smoke set never caught this: its tasks pass on the first attempt, so an iteration
+ceiling of 1 is invisible. **A defect that only appears on tasks hard enough to
+fail is precisely the argument for the harder benchmark in Phase 3.**
+
+### 5.6 Engineering status
 
 **48 automated tests pass offline**, with no API key. They cover budget stops,
 cycle detection, sandbox timeout and **environment isolation**, graded partial
@@ -354,7 +402,23 @@ Open the demo link, type a task, press **Run**. For the live demo use
 **condition C**: it puts three distinct agents on screen (generator → critic →
 repair), which is the shape the project review asked for.
 
-### Tasks verified on the deployed instance
+### All four conditions, same task, on the deployed instance
+
+Task: *"Write solve(expr) that evaluates a string arithmetic expression with
+non-negative integers and the operators + - * / using correct operator precedence
+and no parentheses. Division truncates toward zero. Do not use eval."*
+
+| Condition | Observed | Correct? |
+|---|---|---|
+| **A** — single agent, one shot | `0.80` → stop (`max_iterations`) | ✅ **Failing is right.** A takes one attempt by design — it is the baseline the others must beat |
+| **B** — generator ↔ validator | `0.80` → refine → `1.00` → accepted | ✅ |
+| **C** — generator → critic → repair | `0.80` → critic said **PASS** → refine → `1.00` → accepted | ✅ (and the false accept is visible) |
+| **D** — adaptive | `0.80` → refine → `1.00` → accepted | ✅ *(after the fix in §5.5)* |
+
+**A failing while B, C and D succeed is the best single frame of the demo**: the
+single agent loses, the refinement loop wins, on the same task with the same tests.
+
+### Individual tasks verified on the deployed instance
 
 | Task | Family | Result observed |
 |---|---|---|
@@ -365,7 +429,7 @@ repair), which is the shape the project review asked for.
 | n-th Fibonacci number | code | 1.00 first attempt |
 | Second largest distinct value in a list | code | 1.00 first attempt |
 | Palindrome ignoring case and punctuation | code | 1.00 first attempt |
-| 7 pens at ₹12, paid ₹100 — change? (expected answer `16`) | math | 1.00, accepted |
+| 7 pens at ₹12, paid ₹100 — change? (**Expected answer** field: `16`) | math | 1.00, accepted |
 | "Make a sudoku game as a Flask app" | code | **Declined**, with the reason |
 
 A first-attempt pass is correct but undramatic. **To show the loop working, use one
