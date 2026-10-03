@@ -31,3 +31,6 @@ results/
 Thumbs.db
 .vscode/
 .idea/
+
+# vercel cli link + local build output
+.vercel/

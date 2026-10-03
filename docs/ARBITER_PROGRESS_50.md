@@ -9,15 +9,15 @@ Repository: `github.com/igautamlasgotra/arbiter`
 
 ## 1. Status summary
 
-The core system is **built and working**. An unseen task typed at runtime is answered by a
-real multi-agent loop: tests are designed, a solution is generated, the solution is executed
-against those tests, failures are fed back, and the solution is revised until it passes or the
-budget stops it. The loop, the validators, the budget governor, the baselines and the live web
-interface are all complete and covered by **39 automated tests that run offline**.
+The core system is **built, deployed and measured**. An unseen task typed at runtime is
+answered by a real multi-agent loop: tests are designed, a solution is generated, the solution
+is executed against those tests, failures are fed back, and the solution is revised until it
+passes or the budget stops it. The loop, the validators, the budget governor, all five
+baseline conditions and the live web interface are complete and covered by **42 automated
+tests that run offline**. The demo is hosted publicly so it can be opened from any machine.
 
-What is **not** done is the measurement. Benchmark results require API keys, which have not
-yet been provisioned. No results are reported in this document because none have been produced
-— nothing here is estimated or placeholder.
+The first real measured runs are in Section 3. They are from a five-task smoke set, not the
+final benchmark, and Section 3.2 states plainly what they can and cannot support.
 
 | Area | Status |
 |---|---|
@@ -35,8 +35,10 @@ yet been provisioned. No results are reported in this document because none have
 | Replay mode (demo safety net) | ✅ Complete |
 | Metrics module | ✅ Complete |
 | Resumable experiment runner | ✅ Complete |
+| Live API integration (Gemini), measured token accounting | ✅ Complete |
+| Public deployment (Vercel), token-gated live runs | ✅ Complete |
 | Benchmark datasets — code / SQL / math | ⏳ Smoke set only; full sets in Phase 2 |
-| **Experimental results** | ⏳ **Blocked on API keys** |
+| **Experimental results** | ⏳ Smoke set measured; frozen benchmark in Phase 3 |
 
 ---
 
@@ -72,9 +74,73 @@ Two details worth noting to the panel:
 
 ---
 
-## 3. What was built
+## 3. First measured results
 
-### 3.1 An agent is a function
+All five conditions were run against the five-task smoke set with the real Gemini API.
+**25 task-runs, every number below computed from the logged traces** (`traces/smoke.jsonl`,
+committed to the repository).
+
+| Condition | n | Pass rate | Mean tokens | Mean LLM calls |
+|---|---|---|---|---|
+| A — single agent | 5 | 100% | 240 | 1.0 |
+| A+ — budget-matched single agent | 5 | 100% | 431 | 1.6 |
+| B — generator ↔ validator loop | 5 | 100% | 240 | 1.0 |
+| C — fixed pipeline | 5 | 100% | 240 | 1.0 |
+| **D — ARBITER adaptive** | 5 | 100% | **561** | 2.0 |
+
+### 3.1 What this does and does not show
+
+Every condition solves every task, so **these numbers cannot distinguish the conditions on
+correctness.** The smoke set is a development fixture, not a benchmark: the tasks are easy
+enough that a single model call solves them, which is exactly what a smoke set is for. The
+correct conclusion is that the measurement pipeline works end to end, not that the conditions
+are equivalent.
+
+What the cost column does already show is the shape of the problem the project exists to
+study. At identical correctness, **the adaptive condition spent 2.3× the tokens of the single
+agent** (561 vs 240) because its planner adds a call before any work begins. If that gap does
+not buy correctness on harder tasks, it is a cost with no return — which is precisely the
+deflationary finding of Tran & Kiela (2025) that this project is designed to test rather than
+assume. Phase 3 runs the same comparison on tasks hard enough to separate the conditions.
+
+### 3.2 The validator caught a defect in our own benchmark
+
+On the first sweep, one task (`smoke_code_3`, run-length encoding) scored **0.75 under every
+condition** — the same partial score for all five, which is itself a signal: a model failure
+would vary between conditions, a task failure would not.
+
+Inspecting the trace showed the generated code was **correct**. The task specification asked
+for the encoded string *only when it is strictly shorter* than the input; for the input
+`'aaabbc'` the encoding `'a3b2c1'` is six characters against six, so the correct answer is the
+original string. Our own test asserted the encoded form. **The benchmark task was wrong, not
+the model.** The task was rewritten unambiguously, the affected runs were deleted, and all
+five conditions were re-run; all now pass.
+
+This is worth reporting for three reasons. Graded per-test scoring made the defect visible —
+a binary pass/fail would have shown only "fail". The trace made it diagnosable. And a project
+whose entire output is a comparison table has to be able to tell "the system is wrong" from
+"the measurement is wrong", which is the discipline this incident demonstrates.
+
+---
+
+## 4. Live deployment
+
+The demo is deployed on Vercel as a single Python function serving the same FastAPI
+application that runs locally, so the hosted demo and the laptop demo cannot drift apart.
+Fluid compute is enabled, which is what allows one request to stream Server-Sent Events for
+the length of a run instead of buffering until it ends.
+
+**Live runs are token-gated.** A public URL that executes model-written Python is a remote
+shell, so it is not offered openly. The demonstration link carries an authorisation token;
+without it a visitor still gets the full interface, the offline scripted provider and replay
+of stored runs, but cannot execute code or spend API quota. The gate is covered by automated
+tests rather than by configuration alone.
+
+---
+
+## 5. What was built
+
+### 5.1 An agent is a function
 
 No agent framework is used. An agent is a role prompt, one model call, and a typed parse:
 
@@ -90,7 +156,7 @@ previous approach; `critic` is told to review sceptically. Keeping this explicit
 inside LangGraph or AutoGen — is deliberate: the orchestration logic is what the project
 studies, so it must remain readable.
 
-### 3.2 The orchestrator is a bounded loop
+### 5.2 The orchestrator is a bounded loop
 
 ```
 Task → Planner → ┌─ Generator ─→ Validators (tools first, critic second) ─┐
@@ -104,7 +170,7 @@ tokens, 180 seconds, two iterations without improvement, or a repeated identical
 last being the most common documented multi-agent failure mode (step repetition, 17.1% of
 failures in the MAST taxonomy, NeurIPS 2025). Every stop reason is recorded.
 
-### 3.3 The test-designer agent
+### 5.3 The test-designer agent
 
 Benchmark tasks ship with tests. A task typed by a panel member does not. The test-designer
 agent derives executable tests from the task description and fixes the function signature,
@@ -119,7 +185,7 @@ constructs they have no business using.
 unseen tasks. All benchmark measurement uses the dataset's own tests, and the two are never
 mixed in results.
 
-### 3.4 Condition A+ — the baseline that makes the project credible
+### 5.4 Condition A+ — the baseline that makes the project credible
 
 Most student multi-agent projects compare their system against a single LLM call, declare a
 win, and ignore that the multi-agent system spent five times the tokens. Condition **A+**
@@ -129,7 +195,7 @@ condition actually consumed on that task, spent on repeated sampling with majori
 A+ is deliberately denied access to the validator. If it could see test results it would be a
 refinement loop, not a single agent, and the comparison would be rigged.
 
-### 3.5 Live interface
+### 5.5 Live interface
 
 The web interface streams agent events over Server-Sent Events as they happen. The panel can
 type any task and watch the roles, validator verdicts, iterations, LLM calls and token count
@@ -140,7 +206,7 @@ the demonstration survives a dead API key or venue wifi.
 
 ---
 
-## 4. Engineering decisions worth defending in viva
+## 6. Engineering decisions worth defending in viva
 
 | Decision | Alternative considered | Why this |
 |---|---|---|
@@ -153,20 +219,23 @@ the demonstration survives a dead API key or venue wifi.
 
 ---
 
-## 5. Remaining work
+## 7. Remaining work
 
 | Phase | Dates | Work |
 |---|---|---|
-| Phase 2 | 11 – 31 Oct | Provision API keys; full benchmark datasets (HumanEval+/MBPP+, Spider, GSM8K); evaluate condition D; cross-model validation experiment |
+| Phase 2 | 11 – 31 Oct | Full benchmark datasets (HumanEval+/MBPP+, Spider, GSM8K); evaluate condition D; cross-model validation experiment |
 | Phase 3 | 1 – 10 Nov | Frozen benchmark sweep, comparative results, ablation on iteration count and validator type, failure classification, deployment, report |
 | Final | 23 – 27 Nov | Report, demonstration, viva |
 
 ### Known risks
 
 **API quota is the main risk.** A full sweep is several thousand model calls against a free
-tier. Four controls are already implemented: the response cache, round-robin across three
-keys, a resumable runner that checkpoints after every task and survives quota exhaustion
-mid-sweep, and a reserved demo key the experiment runner never touches.
+tier, and only one key is currently provisioned — the first sweep already retired that key
+once on a rate limit, which the router handled by design. Four controls are implemented: the
+response cache (52% hit rate across the first sweep, so re-runs are largely free), round-robin
+across keys as further keys are added, a resumable runner that checkpoints after every task
+and resumes exactly where it stopped, and a reserved demo key the experiment runner never
+touches so demo-day quota stays fresh.
 
 **Majority voting is weaker for code than for math.** Two correct programs rarely match
 character for character, so A+ is a weaker opponent on code than on math. This is reported as
@@ -174,7 +243,7 @@ a limitation rather than hidden, and it is itself part of the result.
 
 ---
 
-## 6. Work distribution
+## 8. Work distribution
 
 | Member | Contribution this phase |
 |---|---|
@@ -184,5 +253,5 @@ a limitation rather than hidden, and it is itself part of the result.
 
 ---
 
-**Verification:** `pytest -q` → 39 passed, offline, no API key required.
+**Verification:** `pytest -q` → 42 passed, offline, no API key required.
 **Run the demo:** `python -m uvicorn arbiter.web.app:app --reload` → `http://127.0.0.1:8000`
