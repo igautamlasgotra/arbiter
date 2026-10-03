@@ -9,7 +9,11 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from arbiter.agents.test_designer import TestPlanError, design_tests
+from arbiter.agents.test_designer import (
+    InfeasibleTaskError,
+    TestPlanError,
+    design_tests,
+)
 from arbiter.bench.metrics import (
     by_condition,
     false_accept_count,
@@ -102,6 +106,68 @@ def test_design_tests_rejects_tests_that_ignore_entry_point():
     }])
     with pytest.raises(TestPlanError):
         design_tests(task, r, state_for(task))
+
+
+def test_design_tests_declines_a_task_it_cannot_verify():
+    """An app or a UI has no single return value to assert on. Say so."""
+    task = Task(task_id="t", family=Family.CODE, prompt="make a sudoku game as a flask app")
+    r = router_for([{
+        "entry_point": "",
+        "signature": "",
+        "tests": "",
+        "feasible": False,
+        "reason": "a web application has no single function to assert on",
+    }])
+    with pytest.raises(InfeasibleTaskError) as exc:
+        design_tests(task, r, state_for(task))
+    assert "write a function" in str(exc.value).lower()
+
+
+def test_design_tests_allows_a_pure_stdlib_import():
+    """`import math` is ordinary in a test; the old substring guard refused it."""
+    task = Task(task_id="t", family=Family.CODE, prompt="hypotenuse")
+    r = router_for([{
+        "entry_point": "solve",
+        "signature": "def solve(a, b):",
+        "tests": "import math\n\ndef check_a():\n    assert solve(3, 4) == math.hypot(3, 4)\n",
+    }])
+    entry, _, tests = design_tests(task, r, state_for(task))
+    assert entry == "solve" and "math.hypot" in tests
+
+
+def test_design_tests_rejects_a_dangerous_import():
+    task = Task(task_id="t", family=Family.CODE, prompt="x")
+    r = router_for([{
+        "entry_point": "solve",
+        "signature": "",
+        "tests": "import subprocess\n\ndef check_a():\n    assert solve(1)\n",
+    }])
+    with pytest.raises(TestPlanError):
+        design_tests(task, r, state_for(task))
+
+
+def test_design_tests_allows_the_word_import_inside_a_string():
+    """The substring guard rejected tests whose *data* mentioned a banned word."""
+    task = Task(task_id="t", family=Family.CODE, prompt="count words")
+    r = router_for([{
+        "entry_point": "solve",
+        "signature": "def solve(s):",
+        "tests": "def check_a():\n    assert solve('import os open(') == 3\n",
+    }])
+    entry, _, _ = design_tests(task, r, state_for(task))
+    assert entry == "solve"
+
+
+def test_design_tests_rejects_unparseable_tests():
+    task = Task(task_id="t", family=Family.CODE, prompt="x")
+    r = router_for([{
+        "entry_point": "solve",
+        "signature": "",
+        "tests": "def check_a(:\n    assert solve(1)\n",
+    }])
+    with pytest.raises(TestPlanError) as exc:
+        design_tests(task, r, state_for(task))
+    assert "valid Python" in str(exc.value)
 
 
 # -------------------------------------------- budget-matched baseline

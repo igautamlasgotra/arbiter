@@ -164,11 +164,21 @@ def run(
             # An unseen task has no tests. The test designer writes them first;
             # without this the validator has nothing to check against.
             if family is Family.CODE:
-                from arbiter.agents.test_designer import TestPlanError, attach_tests
+                from arbiter.agents.test_designer import (
+                    InfeasibleTaskError,
+                    TestPlanError,
+                    attach_tests,
+                )
 
                 try:
                     task = attach_tests(task, router, state)
                     state.task = task
+                except InfeasibleTaskError as exc:
+                    # Not a malfunction: the system declines what it cannot
+                    # verify rather than pretending to have checked it.
+                    q.put({"kind": "unsupported", "summary": str(exc)})
+                    q.put(sentinel)
+                    return
                 except TestPlanError as exc:
                     q.put({"kind": "error", "summary": f"test design failed: {exc}"})
                     q.put(sentinel)
