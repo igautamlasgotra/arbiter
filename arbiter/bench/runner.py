@@ -21,6 +21,7 @@ from arbiter.config import TRACE_DIR, build_router
 from arbiter.core.schemas import Task
 from arbiter.core.state import Budget
 from arbiter.llm.router import AllKeysExhaustedError, LLMRouter
+from arbiter.orchestrator.baselines import run_single_budget_matched
 from arbiter.orchestrator.loop import run_task
 
 DATASET_DIR = Path(__file__).parent / "datasets"
@@ -50,6 +51,32 @@ def completed_keys(out: Path) -> set[tuple[str, str, int]]:
     return done
 
 
+
+def matched_budget_for(out: Path, task_id: str, seed: int) -> int | None:
+    """Token budget condition D actually used on this task, for condition A+.
+
+    Budget matching is per-task, not a global average: an easy task that D
+    solved in one iteration must not hand A+ the budget of a hard one.
+    """
+    for r in completed_runs(out):
+        if r.get("task_id") == task_id and r.get("condition") == "D" and r.get("seed", 0) == seed:
+            return int(r.get("total_tokens", 0)) or None
+    return None
+
+
+def completed_runs(out: Path) -> list[dict]:
+    if not out.exists():
+        return []
+    rows = []
+    for line in out.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return rows
+
+
 def run_sweep(
     tasks: Iterable[Task],
     router: LLMRouter,
@@ -72,14 +99,30 @@ def run_sweep(
                     skipped += 1
                     continue
                 try:
-                    state = run_task(
-                        task,
-                        router,
-                        condition=condition,
-                        seed=seed,
-                        adaptive=adaptive or condition == "D",
-                        budget=budget.model_copy() if budget else None,
-                    )
+                    if condition == "A+":
+                        # A+ must be matched to what the adaptive condition
+                        # actually spent on THIS task, so it is run after D and
+                        # reads D's recorded token usage from the same file.
+                        matched = matched_budget_for(out, task.task_id, seed)
+                        if matched is None:
+                            print(
+                                f"  {task.task_id}: skipping A+ "
+                                "(run condition D first so there is a budget to match)"
+                            )
+                            skipped += 1
+                            continue
+                        state = run_single_budget_matched(
+                            task, router, token_budget=matched, seed=seed
+                        )
+                    else:
+                        state = run_task(
+                            task,
+                            router,
+                            condition=condition,
+                            seed=seed,
+                            adaptive=adaptive or condition == "D",
+                            budget=budget.model_copy() if budget else None,
+                        )
                 except AllKeysExhaustedError as exc:
                     print(f"\n!! {exc}")
                     print(f"   progress saved to {out}; rerun this command to resume.")

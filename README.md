@@ -71,11 +71,30 @@ experiment runner, so demo-day quota is always fresh.
 ## Running
 
 ```bash
-pytest -q                                    # 20 offline tests, no API key needed
+pytest -q                                    # 39 offline tests, no API key needed
 
-python -m arbiter.bench.runner --dataset smoke --conditions A B
+# live demo UI  ->  http://127.0.0.1:8000
+python -m uvicorn arbiter.web.app:app --reload
+
+# experiments
+python -m arbiter.bench.runner --dataset smoke --conditions A B C
 python -m arbiter.bench.runner --dataset smoke --conditions D --adaptive
+python -m arbiter.bench.runner --dataset smoke --conditions A+     # run D first
+python -m arbiter.bench.metrics traces/smoke.jsonl --by-family
 ```
+
+### The demo
+
+Type any task into the UI and watch the agents work: roles chosen, solution generated, tests
+executed, failures fed back, solution revised. For an unseen task the **test-designer agent**
+writes the tests first, so the system is not limited to problems it already had answers for.
+
+`Offline demo` runs the whole loop with a scripted provider and no API key - useful for
+development and for showing the interface, but runs made this way are tagged `mock` and the
+metrics module refuses to aggregate them into results.
+
+If the API is unavailable mid-demo, `/api/replay?trace=smoke.jsonl` re-streams a stored run
+with its original timing, clearly labelled as a replay.
 
 The runner is **resumable**: every finished task-run is appended to
 `traces/*.jsonl` immediately and skipped on the next invocation. If the daily
@@ -91,11 +110,12 @@ separate metrics pipeline.
 arbiter/
 ├── core/          schemas.py, state.py     ← frozen contracts + budget governor
 ├── llm/           base, cache, gemini, router
-├── agents/        roles.py                 ← the fixed role library
+├── agents/        roles.py, test_designer.py ← fixed role library
 ├── validators/    python_exec, answer_match
 ├── sandbox/       runner.py                ← isolated subprocess execution
-├── orchestrator/  loop.py, planner.py      ← the refinement loop
-└── bench/         runner.py, datasets/
+├── orchestrator/  loop.py, planner.py, baselines.py  ← loop + condition A+
+├── web/           app.py, templates/       ← FastAPI + SSE live demo
+└── bench/         runner.py, metrics.py, datasets/
 docs/              plan, brief
 tests/
 ```

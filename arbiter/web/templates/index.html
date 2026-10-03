@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARBITER</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212a; --line:#2a2f3a;
+    --text:#e6e9ef; --muted:#8b93a7; --accent:#3ddc97; --accent2:#5b9dff;
+    --warn:#f0b429; --bad:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);
+         display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  h1{margin:0;font-size:17px;letter-spacing:.5px}
+  h1 span{color:var(--accent)}
+  .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);
+       padding:2px 7px;border-radius:10px}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;padding:16px;
+       align-items:start}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  textarea,select,input{width:100%;background:var(--panel2);color:var(--text);
+       border:1px solid var(--line);border-radius:6px;padding:9px;font-size:13px;
+       font-family:inherit}
+  textarea{min-height:76px;resize:vertical}
+  .row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:end}
+  .row>div{flex:1;min-width:120px}
+  button{background:var(--accent);color:#06281c;border:0;border-radius:6px;
+         padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  #timeline{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .ev{border:1px solid var(--line);border-left:3px solid var(--muted);
+      border-radius:6px;padding:9px 12px;background:var(--panel2);
+      animation:in .25s ease}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .ev .hd{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .ev .role{font-weight:700;font-size:12px;letter-spacing:.4px;text-transform:uppercase}
+  .ev .t{margin-left:auto;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .ev .sm{color:var(--muted);font-size:12px;margin-top:3px;white-space:pre-wrap}
+  .ev.plan{border-left-color:var(--accent2)} .ev.plan .role{color:var(--accent2)}
+  .ev.design_tests{border-left-color:#b085f5} .ev.design_tests .role{color:#b085f5}
+  .ev.generate{border-left-color:var(--text)}
+  .ev.validate{border-left-color:var(--warn)} .ev.validate .role{color:var(--warn)}
+  .ev.validate.ok{border-left-color:var(--accent)} .ev.validate.ok .role{color:var(--accent)}
+  .ev.decide{border-left-color:var(--muted)}
+  .ev.error{border-left-color:var(--bad)} .ev.error .role{color:var(--bad)}
+  .ev.final{border-left-color:var(--accent);background:#15241d}
+  .pill{font-size:10px;padding:1px 6px;border-radius:9px;border:1px solid var(--line);
+        color:var(--muted)}
+  .m{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);
+     font-size:13px}
+  .m:last-child{border:0}
+  .m b{font-variant-numeric:tabular-nums}
+  pre{background:#0b0d11;border:1px solid var(--line);border-radius:6px;padding:11px;
+      overflow:auto;font-size:12px;margin:8px 0 0;max-height:300px}
+  .banner{padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px;display:none}
+  .banner.warn{background:#2a2213;border:1px solid #5a4718;color:var(--warn);display:block}
+  .banner.replay{background:#13202a;border:1px solid #1d4257;color:var(--accent2);display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>ARBITER<span>.</span></h1>
+  <span class="tag">Adaptive Role-Based Iterative Task Execution &amp; Refinement</span>
+  <span class="tag" id="mode">checking…</span>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <div class="banner" id="banner"></div>
+      <label>Task — type anything, this is not a scripted demo</label>
+      <textarea id="task">Write a function that takes a list of integers and returns the second largest distinct value, or None if there isn't one.</textarea>
+      <div class="row">
+        <div>
+          <label>Family</label>
+          <select id="family">
+            <option value="code">code — validated by running tests</option>
+            <option value="math">math — validated by answer match</option>
+          </select>
+        </div>
+        <div>
+          <label>Condition</label>
+          <select id="condition">
+            <option value="A">A — single agent, one shot</option>
+            <option value="B" selected>B — generator ↔ validator loop</option>
+            <option value="C">C — generator → critic → repair</option>
+            <option value="D">D — adaptive (planner picks roles)</option>
+          </select>
+        </div>
+        <div style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button id="go">Run</button>
+        </div>
+        <div style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button class="ghost" id="offline">Offline demo</button>
+        </div>
+      </div>
+      <div id="timeline"></div>
+    </div>
+  </section>
+
+  <aside class="card">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">LIVE METRICS</div>
+    <div class="m"><span>Iterations</span><b id="m-it">—</b></div>
+    <div class="m"><span>LLM calls</span><b id="m-calls">—</b></div>
+    <div class="m"><span>Tokens</span><b id="m-tok">—</b></div>
+    <div class="m"><span>Elapsed</span><b id="m-el">—</b></div>
+    <div class="m"><span>Agents</span><b id="m-roles">—</b></div>
+    <div class="m"><span>Best score</span><b id="m-score">—</b></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.45">
+      Validation for <b>code</b> runs the program in a sandboxed subprocess —
+      it is not an LLM opinion. Every stop is bounded by an explicit budget.
+    </div>
+  </aside>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const tl = $('timeline');
+let es = null;
+
+fetch('/api/health').then(r=>r.json()).then(h=>{
+  $('mode').textContent = h.live_mode_available ? 'live mode ready' : 'no API key — offline only';
+  if(!h.live_mode_available){
+    const b=$('banner'); b.className='banner warn';
+    b.textContent='No API key configured. Copy .env.example to .env and add ARBITER_DEMO_KEY to run live. "Offline demo" works without a key but uses a scripted provider — never use it for results.';
+  }
+}).catch(()=>{});
+
+function metrics(m){
+  if(!m) return;
+  if(m.iterations!=null) $('m-it').textContent = m.iterations;
+  if(m.llm_calls!=null)  $('m-calls').textContent = m.llm_calls;
+  if(m.tokens!=null)     $('m-tok').textContent = m.tokens.toLocaleString();
+  if(m.elapsed!=null)    $('m-el').textContent = m.elapsed + 's';
+  if(m.roles)            $('m-roles').textContent = m.roles.join(' + ');
+  if(m.best_score!=null) $('m-score').textContent = m.best_score;
+}
+
+function add(kind, role, summary, extra, cls){
+  const d = document.createElement('div');
+  d.className = 'ev ' + kind + (cls? ' '+cls : '');
+  const pills = (extra||[]).map(p=>`<span class="pill">${p}</span>`).join('');
+  d.innerHTML = `<div class="hd"><span class="role">${role||kind}</span>${pills}
+    <span class="t">${summary.ts!=null? summary.ts+'s':''}</span></div>
+    <div class="sm">${(summary.text||'').replace(/</g,'&lt;')}</div>`;
+  tl.appendChild(d);
+  d.scrollIntoView({behavior:'smooth', block:'end'});
+  return d;
+}
+
+function start(url, body){
+  tl.innerHTML=''; $('go').disabled=true; $('offline').disabled=true;
+  ['m-it','m-calls','m-tok','m-el','m-roles','m-score'].forEach(i=>$(i).textContent='—');
+  if(es) es.close();
+
+  fetch(url, {method: body?'POST':'GET',
+              headers: body?{'Content-Type':'application/json'}:{},
+              body: body?JSON.stringify(body):undefined})
+  .then(async resp=>{
+    if(!resp.ok){ add('error','error',{text:'HTTP '+resp.status+' '+await resp.text()}); done(); return; }
+    const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf='';
+    for(;;){
+      const {value,done:fin} = await reader.read(); if(fin) break;
+      buf += dec.decode(value,{stream:true});
+      const parts = buf.split('\n\n'); buf = parts.pop();
+      for(const p of parts){
+        const ev = (p.match(/^event: (.*)$/m)||[])[1];
+        const dt = (p.match(/^data: (.*)$/m)||[])[1];
+        if(!dt) continue;
+        handle(ev, JSON.parse(dt));
+      }
+    }
+    done();
+  }).catch(e=>{ add('error','error',{text:String(e)}); done(); });
+}
+
+function handle(ev, d){
+  if(ev==='start'){
+    if(d.replay){ const b=$('banner'); b.className='banner replay';
+      b.textContent='REPLAY of a stored run — not a live execution.'; }
+    add('plan','task',{text:d.task||''},[d.condition?('condition '+d.condition):'', d.mock?'offline':''].filter(Boolean));
+    return;
+  }
+  if(ev==='end'){ return; }
+  metrics(d.metrics);
+
+  if(d.kind==='final'||ev==='final'){
+    const dd=d.data||{};
+    const el=add('final', dd.passed?'ACCEPTED':'STOPPED',
+      {text:dd.content||'', ts:null},
+      [ 'score '+(dd.score??'—'), 'stop: '+(dd.stop_reason||'—') ]);
+    if(dd.tests){
+      const pre=document.createElement('pre'); pre.textContent='Tests used:\n\n'+dd.tests;
+      el.appendChild(pre);
+    }
+    return;
+  }
+  const ok = d.data && d.data.passed === true;
+  const pills=[];
+  if(d.iteration) pills.push('iter '+d.iteration);
+  if(d.data && d.data.score!=null) pills.push('score '+d.data.score);
+  if(d.data && d.data.is_objective===false) pills.push('LLM opinion');
+  if(d.data && d.data.false_accept) pills.push('FALSE ACCEPT');
+  add(d.kind||ev, d.role||d.kind, {text:d.summary||'', ts:d.ts}, pills, ok?'ok':'');
+}
+
+function done(){ $('go').disabled=false; $('offline').disabled=false; }
+
+$('go').onclick = () => start('/api/run', {
+  task:$('task').value, family:$('family').value,
+  condition:$('condition').value, mock:false});
+
+$('offline').onclick = () => start('/api/run', {
+  task:$('task').value, family:$('family').value,
+  condition:$('condition').value, mock:true});
+</script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mini Project I - Synopsis Report - ARBITER</title>
+<style>
+  @page { size: A4; margin: 15mm 16mm 13mm 16mm; }
+  *{box-sizing:border-box}
+  body{font-family:"Calibri","Segoe UI",Arial,sans-serif;font-size:9.7pt;
+       line-height:1.34;color:#000;margin:0;
+       -webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  /* ---- front page ---- */
+  .cover{border:1.5px solid #000;padding:26px 30px 34px;text-align:center;
+         min-height:252mm;display:flex;flex-direction:column}
+  .cover .mp{font-weight:bold;font-size:13pt;line-height:1.3;margin-bottom:2px}
+  .cover .title{font-size:21pt;color:#2E74B5;margin:10px 0 6px;line-height:1.2}
+  .cover hr{border:0;border-top:1.2px solid #2E74B5;margin:0 0 22px}
+  .cover .by{font-style:italic;margin-bottom:12px}
+  .cover .nm{font-weight:bold;font-size:11pt;margin-top:9px}
+  .cover .en{font-weight:bold;font-size:11pt}
+  .cover .guide{font-weight:bold;margin-top:20px;line-height:1.7}
+  .cover .partial{font-style:italic;font-size:9.6pt;margin-top:20px}
+  .cover .deg{font-weight:bold;font-size:11pt;margin-top:4px}
+  .cover .br{font-size:10.5pt}
+  .logo{width:92px;height:92px;border-radius:50%;border:1px dashed #999;
+        margin:16px auto;display:flex;align-items:center;justify-content:center;
+        font-size:7.5pt;color:#888;line-height:1.2;padding:6px}
+  .cover .uni{font-weight:bold;font-size:11.5pt;margin-top:6px}
+  .cover .sch{font-weight:bold;font-size:10.5pt;margin-top:5px}
+  .cover .addr{font-weight:bold;font-size:10.5pt;margin-top:8px;line-height:1.4}
+  .spacer{flex:1}
+
+  /* ---- content pages ---- */
+  .page{page-break-before:always}
+  h2{font-size:10.6pt;color:#2E74B5;margin:9px 0 3px;font-weight:bold;page-break-after:avoid}
+  h2:first-of-type{margin-top:0}
+  p{margin:0 0 4px;text-align:justify}
+  ul,ol{margin:0 0 5px;padding-left:18px}
+  li{margin-bottom:1.5px}
+  table{width:100%;border-collapse:collapse;margin:4px 0 7px;font-size:8.7pt}
+tr{page-break-inside:avoid}
+  th{background:#DEEAF6;border:1px solid #9CC3E5;padding:3px 5px;text-align:left;font-weight:bold}
+  td{border:1px solid #BDD7EE;padding:3px 5px;vertical-align:top}
+  .refs{font-size:8.5pt}
+  .refs li{margin-bottom:2px}
+  code{font-family:Consolas,monospace;font-size:9.2pt;background:#F2F2F2;padding:0 3px}
+</style>
+</head>
+<body>
+
+<!-- ================= FRONT PAGE ================= -->
+<div class="cover">
+  <div class="mp">MINI PROJECT &ndash; I<br>SYNOPSIS REPORT</div>
+  <div class="title">ARBITER: An Adaptive Multi-Agent System for Iterative Task Generation, Validation and Refinement</div>
+  <hr>
+
+  <div class="by">by</div>
+  <div class="nm">Gautam Lasgotra</div>
+  <div class="en">Entry No.: 23BCS032</div>
+  <div class="nm">Chirag Attri</div>
+  <div class="en">Entry No.: 23BCS024</div>
+  <div class="nm">Aniket Kundal</div>
+  <div class="en">Entry No.: 23BCS015</div>
+
+  <div class="guide">Under the Guidance<br>Of<br>Dr. Sonika Gupta</div>
+
+  <div class="partial">Submitted in partial fulfilment of the requirements for the award of the degree</div>
+  <div class="br">of</div>
+  <div class="deg">BACHELOR OF TECHNOLOGY</div>
+  <div class="br"><i>in</i></div>
+  <div class="br">COMPUTER SCIENCE &amp; ENGINEERING</div>
+
+  <div class="logo">paste SMVDU<br>emblem here</div>
+
+  <div class="uni">SHRI MATA VAISHNO DEVI UNIVERSITY, KATRA</div>
+  <div class="sch">(School of Computer Science &amp; Engineering)</div>
+  <div class="addr">JAMMU &amp; KASHMIR &ndash; 182 320<br>Session 2026-27 (Odd)</div>
+  <div class="spacer"></div>
+</div>
+
+<!-- ================= CONTENT ================= -->
+<div class="page">
+
+<h2>1. Title of the Project</h2>
+<p>ARBITER: An Adaptive Multi-Agent System for Iterative Task Generation, Validation and
+Refinement &mdash; with a Budget-Matched Evaluation of When Multi-Agent Refinement Helps.</p>
+
+<h2>2. Name(s) of the Student(s) with Entry Number(s)</h2>
+<p>Gautam Lasgotra (23BCS032) &middot; Chirag Attri (23BCS024) &middot; Aniket Kundal (23BCS015)</p>
+
+<h2>3. Name of the Guide (with Designation &amp; Department)</h2>
+<p>Dr. Sonika Gupta, Assistant Professor, School of Computer Science &amp; Engineering, SMVDU Katra.</p>
+
+<h2>4. Introduction and Background of the Study</h2>
+<p>Large Language Models produce plausible output but cannot reliably verify their own work.
+A widely studied response is <i>multi-agent refinement</i>: one agent produces a solution,
+another inspects or tests it, the feedback is returned, and the solution is revised. Systems
+such as Self-Refine, Reflexion and AgentCoder report improvements from this pattern, and
+frameworks such as ChatDev and MetaGPT extend it to role-specialised teams.</p>
+<p>Two recent findings complicate that picture. First, Huang et al. (ICLR 2024) showed that
+without <i>external</i> feedback, self-correction does not improve results and frequently
+degrades them &mdash; implying that the verifier, not the critic, is the active ingredient.
+Second, budget-matched studies (Tran &amp; Kiela, 2025) found that once the number of reasoning
+tokens is held equal, a single agent matches or exceeds multi-agent systems on reasoning
+tasks, concluding that reported multi-agent advantages are better explained by unaccounted
+computation than by architecture.</p>
+<p>Meanwhile, a newer line of work proposes <i>adaptive</i> orchestration &mdash; selecting agents
+and workflow depth per task so that effort is spent only where it is needed. This project
+builds such a system and then applies to it the one test its own justification demands.</p>
+
+<h2>5. Objectives of the Project</h2>
+<ol>
+  <li>Design and implement an adaptive multi-agent system that accepts an unseen natural-language
+  task at runtime, selects appropriate agent roles, generates a solution, validates it using
+  executable tools, returns feedback, and refines iteratively under explicit budget limits.</li>
+  <li>Implement independent validation using deterministic tools (program execution, query
+  execution, answer matching) rather than relying on an LLM to judge its own output.</li>
+  <li>Implement baseline conditions &mdash; including a <b>budget-matched</b> single agent &mdash;
+  so that any observed benefit can be attributed to architecture rather than to extra computation.</li>
+  <li>Construct a benchmark spanning three task families that differ in the strength of the
+  available automatic verifier, and measure correctness, iterations, agents used, token usage,
+  latency and cost.</li>
+  <li>Provide a web interface that exposes the live execution trace, so that agent decisions,
+  validation results and resource consumption are observable rather than hidden.</li>
+</ol>
+
+<h2>6. Problem Statement / Research Question</h2>
+<p>Adaptive multi-agent orchestration is justified on the grounds of computational efficiency
+&mdash; spending agents only when a task needs them. That is a claim about cost. Yet existing
+adaptive systems are evaluated against the strongest available baseline rather than against a
+single agent given an <i>equal token budget</i>, which is precisely the comparison that
+deflated earlier multi-agent claims.</p>
+<p><b>Primary research question.</b> Under a matched token budget, does adaptive multi-agent
+refinement improve task correctness over (a) a budget-matched single agent and (b) fixed
+multi-agent pipelines?</p>
+<p><b>Secondary questions.</b> (i) Does any observed benefit depend on the strength of the
+automatic verifier available for the task? (ii) Does combining tool-based validation with an
+LLM critic reduce undetected errors compared with LLM-only review? (iii) How many refinement
+iterations remain useful before further iterations stop paying for themselves?</p>
+<p>The contribution claimed is a <b>measurement and an evaluation methodology</b>, not a novel
+architecture. Multi-agent collaboration and adaptive orchestration are both established prior
+art and are treated as such throughout.</p>
+
+<h2>7. Methodology / Approach</h2>
+<p><b>System.</b> A task analyser classifies the incoming task; a planner emits a workflow
+specification selecting roles from a fixed library (generator, test designer, critic, repair);
+the orchestrator runs a bounded generate &rarr; validate &rarr; decide loop. Validation is
+performed first by deterministic tools and only then by an LLM critic, whose verdict is
+recorded but never treated as authoritative. For tasks supplied at runtime, a test-designer
+agent first derives executable tests from the task description.</p>
+<p><b>Termination.</b> The loop stops on acceptance, or on any of: maximum iterations, LLM
+calls, token budget, wall-clock limit, two iterations without score improvement, or a repeated
+identical output. Every termination reason is logged; unbounded loops are structurally
+impossible.</p>
+<p><b>Evaluation.</b> Five conditions are compared on a frozen benchmark:</p>
+<table>
+<tr><th style="width:13%">Condition</th><th>Description</th></tr>
+<tr><td><b>A</b></td><td>Single agent, single attempt</td></tr>
+<tr><td><b>A+</b></td><td>Single agent given the same token budget as condition D, spent on repeated sampling with majority voting</td></tr>
+<tr><td><b>B</b></td><td>Generator &harr; validator refinement loop</td></tr>
+<tr><td><b>C</b></td><td>Fixed pipeline: generator &rarr; critic &rarr; repair</td></tr>
+<tr><td><b>D</b></td><td>ARBITER &mdash; planner selects roles and iteration limit per task</td></tr>
+</table>
+<p>All conditions share one engine and differ only by configuration, so differences cannot
+arise from implementation divergence. Every metric is computed from logged execution traces.</p>
+
+<h2>8. Tools, Technologies, or Datasets to be Used</h2>
+<table>
+<tr><th style="width:26%">Component</th><th>Choice</th></tr>
+<tr><td>Language / backend</td><td>Python 3.10+, FastAPI, Pydantic v2</td></tr>
+<tr><td>Orchestration</td><td>Custom state machine (no heavyweight agent framework, so the logic under study remains inspectable)</td></tr>
+<tr><td>Language model</td><td>Google Gemini (Flash-Lite tier) behind a provider abstraction; secondary provider for cross-model validation experiments</td></tr>
+<tr><td>Execution sandbox</td><td>Isolated subprocess with timeout, restricted environment and resource limits</td></tr>
+<tr><td>Storage / logging</td><td>JSONL execution traces, SQLite, on-disk response cache for reproducibility</td></tr>
+<tr><td>Interface</td><td>Server-Sent Events streaming to a browser client</td></tr>
+<tr><td>Datasets</td><td>Code: HumanEval+/MBPP+ (EvalPlus) &middot; SQL: Spider &middot; Mathematical reasoning: GSM8K</td></tr>
+</table>
+
+
+<h2>9. Expected Outcomes / Deliverables</h2>
+<ul>
+  <li>A working adaptive multi-agent system that accepts unseen runtime tasks, performs real
+  model calls, validates with executable tools, refines iteratively, and terminates under an
+  explicit budget.</li>
+  <li>A web interface showing the live execution timeline, agent roles, validation results and
+  resource consumption, with a replay mode for stored runs.</li>
+  <li>A frozen benchmark across three task families with differing verifier strength.</li>
+  <li>A comparative results table across the five conditions, reporting correctness alongside
+  tokens consumed per task solved.</li>
+  <li>An analysis of failure modes classified using an established multi-agent failure taxonomy.</li>
+  <li>Reproducible experiment logs, a documented architecture, and a project report.</li>
+</ul>
+<p><i>Expected findings are stated as hypotheses only and will be reported from measurement,
+whatever the outcome.</i> We hypothesise that benefit tracks verifier strength &mdash; largest
+where executable tests exist and smallest where only a final answer can be checked &mdash; and
+that most improvement occurs within the first two refinement iterations. A result showing that
+adaptive orchestration does <i>not</i> outperform a budget-matched single agent would be a
+valid and reportable finding.</p>
+
+<h2>10. Timeline of Work</h2>
+<table>
+<tr><th style="width:20%">Phase</th><th style="width:20%">Dates</th><th>Work</th></tr>
+<tr><td>Phase 0 &mdash; Literature and design</td><td>22 &ndash; 28 Sep 2026</td>
+<td>Literature survey, prior-art matrix, research-gap analysis, architecture and evaluation design, technology selection</td></tr>
+<tr><td>Phase 1 &mdash; Core system</td><td>29 Sep &ndash; 10 Oct 2026</td>
+<td>Orchestration loop, budget governor, provider abstraction with caching, sandboxed execution, validators, test-designer agent, baselines A/A+/B/C, web interface <i>(complete)</i></td></tr>
+<tr><td>Mid-semester evaluation</td><td>19 &ndash; 21 Oct 2026</td>
+<td>Demonstration of the working refinement loop and initial comparative results</td></tr>
+<tr><td>Phase 2 &mdash; Research depth</td><td>11 &ndash; 31 Oct 2026</td>
+<td>Adaptive planner (condition D), SQL and mathematical-reasoning families, cross-model validation, budget-matched protocol</td></tr>
+<tr><td>Phase 3 &mdash; Experiments</td><td>1 &ndash; 10 Nov 2026</td>
+<td>Frozen benchmark sweep, metrics, ablation on iteration count and validator type, failure analysis, deployment, report</td></tr>
+<tr><td>Final evaluation</td><td>23 &ndash; 27 Nov 2026</td>
+<td>Report, demonstration and viva</td></tr>
+</table>
+
+<h2>11. References</h2>
+<ol class="refs">
+<li>Madaan, A. et al. (2023). <i>Self-Refine: Iterative Refinement with Self-Feedback.</i> NeurIPS 2023.</li>
+<li>Shinn, N. et al. (2023). <i>Reflexion: Language Agents with Verbal Reinforcement Learning.</i> NeurIPS 2023.</li>
+<li>Huang, D. et al. (2023). <i>AgentCoder: Multi-Agent-based Code Generation with Iterative Testing and Optimisation.</i> arXiv:2312.13010.</li>
+<li>Huang, J. et al. (2024). <i>Large Language Models Cannot Self-Correct Reasoning Yet.</i> ICLR 2024. arXiv:2310.01798.</li>
+<li>Kamoi, R. et al. (2024). <i>When Can LLMs Actually Correct Their Own Mistakes? A Critical Survey of Self-Correction of LLMs.</i> TACL. arXiv:2406.01297.</li>
+<li>Cemri, M. et al. (2025). <i>Why Do Multi-Agent LLM Systems Fail?</i> NeurIPS 2025. arXiv:2503.13657.</li>
+<li>Tran, K. and Kiela, D. (2025). <i>Compute-matched comparison of single-agent and multi-agent LLM systems.</i></li>
+<li>Wu, Q. et al. (2023). <i>AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation.</i> arXiv:2308.08155.</li>
+<li>Hong, S. et al. (2023). <i>MetaGPT: Meta Programming for a Multi-Agent Collaborative Framework.</i> arXiv:2308.00352.</li>
+<li>Qian, C. et al. (2023). <i>ChatDev: Communicative Agents for Software Development.</i> arXiv:2307.07924.</li>
+<li><i>From Static Templates to Dynamic Runtime Graphs: A Survey of Workflow Optimization for LLM Agents.</i> arXiv:2603.22386.</li>
+<li>Liu, J. et al. (2023). <i>Is Your Code Generated by ChatGPT Really Correct? Rigorous Evaluation of LLM Code Generation (EvalPlus).</i> NeurIPS 2023.</li>
+<li>Yu, T. et al. (2018). <i>Spider: A Large-Scale Human-Labeled Dataset for Complex and Cross-Domain Semantic Parsing and Text-to-SQL.</i> EMNLP 2018.</li>
+<li>Cobbe, K. et al. (2021). <i>Training Verifiers to Solve Math Word Problems (GSM8K).</i> arXiv:2110.14168.</li>
+</ol>
+
+</div>
+</body>
+</html>

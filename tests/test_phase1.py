@@ -1,0 +1,234 @@
+"""Tests for the Phase-1 additions: test designer, budget-matched baseline,
+metrics, and the web endpoints. All offline - no API key, no cost.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+from fastapi.testclient import TestClient
+
+from arbiter.agents.test_designer import TestPlanError, design_tests
+from arbiter.bench.metrics import (
+    by_condition,
+    false_accept_count,
+    format_table,
+    summarise,
+    tokens_per_solve,
+)
+from arbiter.core.schemas import Family, Task
+from arbiter.core.state import RunState
+from arbiter.llm.base import LLMResponse, Usage
+from arbiter.llm.cache import ResponseCache
+from arbiter.llm.mock import MockProvider
+from arbiter.llm.router import LLMRouter
+from arbiter.orchestrator.baselines import run_single_budget_matched
+from arbiter.web.app import app
+
+
+def router_for(payloads: list[dict]) -> LLMRouter:
+    """Router backed by a provider that returns scripted JSON payloads."""
+
+    class Scripted:
+        name, model = "scripted", "s1"
+
+        def __init__(self):
+            self.i = 0
+
+        def generate(self, prompt, **kw):
+            p = payloads[min(self.i, len(payloads) - 1)]
+            self.i += 1
+            return LLMResponse(
+                text=json.dumps(p),
+                usage=Usage(prompt_tokens=10, completion_tokens=10),
+                model=self.model,
+                provider="scripted",
+            )
+
+    return LLMRouter([Scripted()], ResponseCache(enabled=False))
+
+
+def state_for(task: Task) -> RunState:
+    return RunState(task=task, condition="test")
+
+
+# ------------------------------------------------------- test designer
+
+
+def test_design_tests_happy_path():
+    task = Task(task_id="t", family=Family.CODE, prompt="double a number")
+    r = router_for([{
+        "entry_point": "solve",
+        "signature": "def solve(x):",
+        "tests": "def check_a():\n    assert solve(2) == 4\n",
+    }])
+    entry, sig, tests = design_tests(task, r, state_for(task))
+    assert entry == "solve" and "check_a" in tests
+
+
+def test_design_tests_rejects_bad_entry_point():
+    task = Task(task_id="t", family=Family.CODE, prompt="x")
+    r = router_for([{"entry_point": "not a name!", "signature": "", "tests": "def check_a(): pass"}])
+    with pytest.raises(TestPlanError):
+        design_tests(task, r, state_for(task))
+
+
+def test_design_tests_rejects_tests_without_checks():
+    task = Task(task_id="t", family=Family.CODE, prompt="x")
+    r = router_for([{"entry_point": "solve", "signature": "", "tests": "x = 1"}])
+    with pytest.raises(TestPlanError):
+        design_tests(task, r, state_for(task))
+
+
+def test_design_tests_rejects_filesystem_access():
+    """Generated tests have no business touching the disk."""
+    task = Task(task_id="t", family=Family.CODE, prompt="x")
+    r = router_for([{
+        "entry_point": "solve",
+        "signature": "",
+        "tests": "def check_a():\n    open('/etc/passwd')\n    assert solve(1)\n",
+    }])
+    with pytest.raises(TestPlanError):
+        design_tests(task, r, state_for(task))
+
+
+def test_design_tests_rejects_tests_that_ignore_entry_point():
+    task = Task(task_id="t", family=Family.CODE, prompt="x")
+    r = router_for([{
+        "entry_point": "solve",
+        "signature": "",
+        "tests": "def check_a():\n    assert 1 == 1\n",
+    }])
+    with pytest.raises(TestPlanError):
+        design_tests(task, r, state_for(task))
+
+
+# -------------------------------------------- budget-matched baseline
+
+
+def test_budget_matched_respects_token_budget():
+    task = Task(task_id="t", family=Family.MATH, prompt="2+2?", gold_answer="4")
+    r = router_for([{"content": "4", "reasoning": ""}])
+    st = run_single_budget_matched(task, r, token_budget=60, max_samples=8)
+    assert st.condition == "A+"
+    assert st.tokens_used <= 60 + 20  # may overshoot by at most the last sample
+
+
+def test_budget_matched_majority_vote_picks_the_common_answer():
+    task = Task(task_id="t", family=Family.MATH, prompt="q", gold_answer="7")
+    r = router_for([
+        {"content": "7", "reasoning": ""},
+        {"content": "7", "reasoning": ""},
+        {"content": "9", "reasoning": ""},
+    ])
+    st = run_single_budget_matched(task, r, token_budget=10_000, max_samples=3)
+    assert st.best_content.strip() == "7"
+    assert st.best_score == 1.0
+
+
+def test_budget_matched_never_uses_validator_to_choose():
+    """A+ must pick before scoring, otherwise the comparison is rigged."""
+    task = Task(task_id="t", family=Family.MATH, prompt="q", gold_answer="99")
+    # majority is wrong; A+ must still return the majority, scoring 0
+    r = router_for([
+        {"content": "1", "reasoning": ""},
+        {"content": "1", "reasoning": ""},
+        {"content": "99", "reasoning": ""},
+    ])
+    st = run_single_budget_matched(task, r, token_budget=10_000, max_samples=3)
+    assert st.best_content.strip() == "1"
+    assert st.best_score == 0.0
+
+
+# ------------------------------------------------------------ metrics
+
+
+def _run(cond="B", passed=True, tokens=100, score=1.0, family="code", mock=False):
+    trace = [{"kind": "validate", "data": {"provider": "mock"} if mock else {}}]
+    return {
+        "task_id": "x", "condition": cond, "family": family, "passed": passed,
+        "best_score": score, "total_tokens": tokens, "llm_calls": 2,
+        "iterations": 1, "stop_reason": "accepted", "trace": trace,
+    }
+
+
+def test_summarise_basic():
+    s = summarise([_run(passed=True, tokens=100), _run(passed=False, tokens=300, score=0.5)])
+    assert s["n"] == 2
+    assert s["pass_rate"] == 0.5
+    assert s["mean_tokens"] == 200.0
+
+
+def test_metrics_refuse_mock_runs():
+    """A dry run must never be mistaken for a result."""
+    assert summarise([_run(mock=True), _run(mock=True)]) == {"n": 0}
+
+
+def test_false_accept_counted():
+    run = {"trace": [
+        {"kind": "validate", "data": {"false_accept": True}},
+        {"kind": "validate", "data": {"false_accept": False}},
+    ]}
+    assert false_accept_count(run) == 1
+
+
+def test_tokens_per_solve():
+    s = summarise([_run(passed=True, tokens=100), _run(passed=False, tokens=100, score=0.0)])
+    # 2 runs, 200 tokens total, 1 solved -> 200 per solve
+    assert tokens_per_solve(s) == 200.0
+
+
+def test_format_table_handles_no_real_runs():
+    assert "No non-mock runs" in format_table(by_condition([_run(mock=True)]))
+
+
+# ---------------------------------------------------------- web layer
+
+
+def test_health_endpoint():
+    c = TestClient(app)
+    r = c.get("/api/health")
+    assert r.status_code == 200 and r.json()["ok"] is True
+
+
+def test_index_serves_ui():
+    c = TestClient(app)
+    r = c.get("/")
+    assert r.status_code == 200 and "ARBITER" in r.text
+
+
+def test_run_rejects_unknown_family():
+    c = TestClient(app)
+    r = c.post("/api/run", json={"task": "x", "family": "nonsense"})
+    assert r.status_code == 400
+
+
+def test_offline_run_streams_to_completion():
+    """The whole loop, over HTTP, with no API key."""
+    c = TestClient(app)
+    with c.stream(
+        "POST", "/api/run",
+        json={"task": "double a number", "family": "code", "condition": "B", "mock": True},
+    ) as resp:
+        body = "".join(resp.iter_text())
+    assert "event: generate" in body
+    assert "event: validate" in body
+    assert "event: final" in body
+
+
+def test_replay_404s_on_missing_trace():
+    c = TestClient(app)
+    assert c.get("/api/replay", params={"trace": "nope.jsonl"}).status_code == 404
+
+
+# ------------------------------------------------------- mock provider
+
+
+def test_mock_fails_first_then_succeeds():
+    """The offline demo must show the loop working, not a lucky first shot."""
+    m = MockProvider()
+    first = json.loads(m.generate("double the number x").text)["content"]
+    second = json.loads(m.generate("double the number x\nPREVIOUS ATTEMPT failed").text)["content"]
+    assert "x + 2" in first
+    assert "x * 2" in second

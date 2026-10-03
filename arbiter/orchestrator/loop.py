@@ -86,6 +86,22 @@ def run_task(
 ) -> RunState:
     """Execute one task under one condition. Returns the full RunState."""
     state = RunState(task=task, condition=condition, budget=budget, seed=seed)
+    return run_task_with_state(state, router, condition=condition, adaptive=adaptive)
+
+
+def run_task_with_state(
+    state: RunState,
+    router: LLMRouter,
+    *,
+    condition: str = "B",
+    adaptive: bool = False,
+) -> RunState:
+    """Same loop, but on a caller-supplied state.
+
+    The web UI needs this so it can attach a live event listener before the
+    run starts. Splitting it here keeps the orchestrator unaware of the UI.
+    """
+    task = state.task
 
     if adaptive:
         from arbiter.orchestrator.planner import plan_adaptive

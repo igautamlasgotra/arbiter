@@ -12,7 +12,7 @@ import json
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, Field
 
@@ -71,11 +71,16 @@ class RunState:
         condition: str,
         budget: Optional[Budget] = None,
         seed: int = 0,
+        on_event: Optional[Callable[[TraceEvent, "RunState"], None]] = None,
     ) -> None:
         self.task = task
         self.condition = condition
         self.budget = budget or Budget()
         self.seed = seed
+        # Optional live listener. The web UI uses this to stream agent cards as
+        # they happen; the batch runner leaves it unset. Keeping it a plain
+        # callback means the orchestrator has no idea a UI exists.
+        self.on_event = on_event
 
         self.iteration = 0
         self.llm_calls = 0
@@ -163,16 +168,21 @@ class RunState:
         role: Optional[str] = None,
         **data: Any,
     ) -> None:
-        self.trace.append(
-            TraceEvent(
-                ts=time.time() - self.started_at,
-                iteration=self.iteration,
-                kind=kind,
-                role=role,
-                summary=summary,
-                data=data,
-            )
+        event = TraceEvent(
+            ts=time.time() - self.started_at,
+            iteration=self.iteration,
+            kind=kind,
+            role=role,
+            summary=summary,
+            data=data,
         )
+        self.trace.append(event)
+        if self.on_event is not None:
+            try:
+                self.on_event(event, self)
+            except Exception:
+                # a broken UI listener must never break a research run
+                pass
 
     def to_record(self) -> dict[str, Any]:
         """Flat record for JSONL. One line per task-run; this is the dataset
