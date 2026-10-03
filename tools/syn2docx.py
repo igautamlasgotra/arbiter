@@ -1,3 +1,7 @@
+# NOTE: superseded for the synopsis. docs/sys.docx is now the master -
+# its typography was changed by hand in Word, and running this script would
+# overwrite that. Kept for reference and for regenerating other documents.
+
 """Build the synopsis .docx from docs/synopsis.html.
 
 Generated from the same source as the PDF on purpose: a hand-maintained Word

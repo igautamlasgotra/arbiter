@@ -5,6 +5,8 @@
 # personal documents - never commit (contains phone/email)
 Resume*.pdf
 *.docx
+# ...but the project's own documents in docs/ are deliverables, not personal
+!docs/*.docx
 
 # python
 __pycache__/
