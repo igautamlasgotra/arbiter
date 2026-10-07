@@ -264,6 +264,23 @@ def test_index_serves_ui():
     assert r.status_code == 200 and "ARBITER" in r.text
 
 
+def test_icons_are_served_without_shadowing_the_api():
+    """The icon route is a single-segment catch-all; check it stays in its lane."""
+    c = TestClient(app)
+    for path, media in [
+        ("/favicon.svg", "image/svg+xml"),
+        ("/favicon.ico", "image/x-icon"),
+        ("/apple-touch-icon.png", "image/png"),
+        ("/site.webmanifest", "application/manifest+json"),
+    ]:
+        r = c.get(path)
+        assert r.status_code == 200, path
+        assert r.headers["content-type"].startswith(media), path
+
+    assert c.get("/api/health").json()["ok"] is True
+    assert c.get("/nonsense").status_code == 404
+
+
 def test_run_rejects_unknown_family():
     c = TestClient(app)
     r = c.post("/api/run", json={"task": "x", "family": "nonsense"})

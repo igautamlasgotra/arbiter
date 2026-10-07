@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from arbiter.config import TRACE_DIR, build_router
@@ -53,6 +53,7 @@ from arbiter.llm.router import LLMRouter
 app = FastAPI(title="ARBITER", docs_url="/api/docs")
 
 TEMPLATES = Path(__file__).parent / "templates"
+STATIC = Path(__file__).parent / "static"
 ALLOW_EXEC = os.getenv("ARBITER_ALLOW_EXEC", "1") == "1"
 DEMO_TOKEN = os.getenv("ARBITER_DEMO_TOKEN", "").strip()
 
@@ -111,6 +112,31 @@ def _event_payload(e: TraceEvent, st: RunState) -> dict[str, Any]:
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return (TEMPLATES / "index.html").read_text(encoding="utf-8")
+
+
+# Served by hand rather than by mounting StaticFiles: there are five files, and
+# the catch-all rewrite on the host means a stray /favicon.ico would otherwise
+# be answered by the HTML page.
+_ICONS = {
+    "favicon.svg": "image/svg+xml",
+    "favicon.ico": "image/x-icon",
+    "apple-touch-icon.png": "image/png",
+    "icon-192.png": "image/png",
+    "icon-512.png": "image/png",
+    "site.webmanifest": "application/manifest+json",
+}
+
+
+@app.get("/{name}", include_in_schema=False)
+def icon(name: str) -> Response:
+    media = _ICONS.get(name)
+    if media is None:
+        raise HTTPException(404, "not found")
+    return FileResponse(
+        STATIC / name,
+        media_type=media,
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
 
 
 @app.get("/api/health")
