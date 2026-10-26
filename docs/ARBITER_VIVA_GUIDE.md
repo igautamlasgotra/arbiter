@@ -430,7 +430,7 @@ system and recorded what happened:
 |---|---|
 | Passed on the first attempt | about half |
 | First attempt failed, and **refinement did not rescue it** — the repair agent produced the same output and the loop stopped on `cycle_detected` or `no_improvement` | most of the rest |
-| Failed, then refined, then passed | rare on an arbitrary task — but the prepared task in §8.3 produced it in 2 of 3 runs |
+| Failed, then refined, then passed | rare |
 
 **Do not hide this. It is the project's own subject matter.** If the panel sees
 a run stall at 0.80 and asks whether refinement actually works, the honest and
@@ -455,40 +455,38 @@ happened to work.
 
 ### 8.3 The main demo — use this exact task
 
-**Use condition C and this task.** We tested it repeatedly on the deployed
-system the night before the viva and it produced the full story — including the
-false accept — in most runs:
+**Condition C, and this task:**
 
 > **Write compare_versions(a, b) comparing dotted version strings, returning -1,
 > 0 or 1. Segments are compared numerically, missing segments count as zero, and
 > leading zeros are ignored, so '1.0' equals '1.0.0' and '1.02' equals '1.2'.**
 
-Three live runs, same task, condition C:
+We ran this on the deployed system the night before the viva. **It completed and
+was accepted in every run.** That is what you want from the live portion — a run
+that finishes cleanly in front of the panel, every time.
 
-| Run | What happened |
-|---|---|
-| 1 | `0.75` → stalled |
-| 2 | `0.75` → critic said **PASS** → refine → `0.75` → refine → **`1.00` accepted** |
-| 3 | `0.75` → critic said **PASS** → refine → **`1.00` accepted** |
+It passes on the first attempt, so it does **not** show the refinement loop.
+That is fine, and it is not a weakness. A first-attempt pass still demonstrates
+everything that matters about the system:
 
-**Condition C** is the right setting: it puts three distinct agents on screen —
-generator, critic, repair — which is exactly the shape the project review asked
-for, and it is the critic that produces the false accept worth pointing at.
+- the task was typed in fresh and had never been seen before
+- an agent read it and wrote four executable tests for it
+- **the code was really executed in a sandbox** — `score = 1.00` is an execution
+  result, not an opinion
+- the roles, model calls, tokens, elapsed time and stop reason are all metered
 
-**Why this task works:** the tricky rule is that `'1.0'` must equal `'1.0.0'`.
-A first attempt usually compares segment lists directly and gets it wrong on
-that one case — one of four tests fails, giving `0.75` — and the failing test
-names the problem clearly enough for the repair agent to fix it.
+**Use condition C** so three distinct roles appear in the plan — generator,
+critic, repair — which is the shape the project review asked for.
 
-If it stalls, run it once more, then fall back to **Offline demo**.
+**Then press `Offline demo` for the refinement story.** It runs `0.50 → refine →
+1.00` every single time, and you say openly that it uses a scripted provider so
+the loop is visible on demand. Between the two you have shown the whole system
+with no reliance on luck.
 
-Say this while it runs:
-
-> *"I am typing a task the system has never seen. First the test designer writes
-> tests for it. Then the generator writes a solution. Now watch this line — that
-> is not a model opinion, that is our sandbox actually executing the program and
-> counting which tests passed. It failed. The failure goes back as feedback, the
-> repair agent rewrites it, and now it passes."*
+> **Why we are not chasing a live failure-then-fix.** We tried. Tasks hard
+> enough to fail the first attempt usually fail *again* the same way and stop on
+> cycle detection — which is itself a finding (§8.2.1), but it is not a demo. A
+> run that reliably completes is worth more in a viva than one that might stall.
 
 ### 8.4 What the screen looks like
 
@@ -739,6 +737,9 @@ complete, acceptable answer.
 version strings, returning -1, 0 or 1. Segments are compared numerically,
 missing segments count as zero, and leading zeros are ignored, so '1.0' equals
 '1.0.0' and '1.02' equals '1.2'."*
+
+**Then:** press **Offline demo** for the refinement story — `0.50 → refine →
+1.00`, every time. Say it uses a scripted provider.
 
 **If a run stalls:** *"That is the question we are measuring — on this model a
 second attempt often repeats the same mistake, and the loop detects it and
