@@ -173,7 +173,13 @@ fetch('/api/health', {headers: authHeaders()}).then(r=>r.json()).then(h=>{
 function metrics(m){
   if(!m) return;
   if(m.iterations!=null) $('m-it').textContent = m.iterations;
-  if(m.llm_calls!=null)  $('m-calls').textContent = m.llm_calls;
+  if(m.llm_calls!=null){
+    // Say so when answers came from the response cache. A rehearsed task
+    // replays identically and costs nothing; it must never look like a fresh
+    // call to anyone watching.
+    const c = m.cached_calls || 0;
+    $('m-calls').textContent = m.llm_calls + (c ? ` (${c} cached)` : '');
+  }
   if(m.tokens!=null)     $('m-tok').textContent = m.tokens.toLocaleString();
   if(m.elapsed!=null)    $('m-el').textContent = m.elapsed + 's';
   if(m.roles)            $('m-roles').textContent = m.roles.join(' + ');

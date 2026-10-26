@@ -101,6 +101,7 @@ def _event_payload(e: TraceEvent, st: RunState) -> dict[str, Any]:
         "metrics": {
             "iterations": st.iteration,
             "llm_calls": st.llm_calls,
+            "cached_calls": st.cached_calls,
             "tokens": st.tokens_used,
             "elapsed": round(st.elapsed, 1),
             "roles": st.spec.roles,
@@ -254,6 +255,7 @@ def run(
                     "metrics": {
                         "iterations": state.iteration,
                         "llm_calls": state.llm_calls,
+                        "cached_calls": state.cached_calls,
                         "tokens": state.tokens_used,
                         "elapsed": round(state.elapsed, 1),
                         "roles": state.spec.roles,

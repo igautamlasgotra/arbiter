@@ -59,13 +59,16 @@ class ResponseCache:
         self.enabled = enabled
         self.hits = 0
         self.misses = 0
+        # Reading and writing are separate capabilities. A deployment can ship a
+        # pre-warmed cache on a read-only disk: writes must fail quietly without
+        # taking reads down with them, or the first miss would disable every
+        # subsequent hit in the same run.
+        self.writable = enabled
         if self.enabled:
             try:
                 self.root.mkdir(parents=True, exist_ok=True)
             except OSError:
-                # Serverless hosts mount the deployment read-only. Losing the
-                # cache costs quota; crashing the demo costs the demo.
-                self.enabled = False
+                self.writable = False
 
     def _path(self, key: str) -> Path:
         # shard by first 2 chars so directories stay small
@@ -90,7 +93,7 @@ class ResponseCache:
         return resp
 
     def put(self, key: str, response: LLMResponse) -> None:
-        if not self.enabled:
+        if not (self.enabled and self.writable):
             return
         fp = self._path(key)
         payload = response.model_dump()
@@ -101,7 +104,7 @@ class ResponseCache:
             tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
             tmp.replace(fp)  # atomic, so a killed run cannot leave a partial file
         except OSError:
-            self.enabled = False  # read-only disk: degrade, never fail the run
+            self.writable = False  # read-only disk: stop writing, keep reading
 
     @property
     def hit_rate(self) -> float:
