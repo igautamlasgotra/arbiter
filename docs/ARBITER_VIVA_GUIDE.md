@@ -421,6 +421,32 @@ failure-then-fix.**
 That is already the thing the project review asked for. **The failure-then-fix
 is a bonus, not the demo.**
 
+### 8.2.1 Turn this into a research point, not an excuse
+
+While preparing for this viva we ran a batch of fresh tasks through the live
+system and recorded what happened:
+
+| Outcome | How often |
+|---|---|
+| Passed on the first attempt | about half |
+| First attempt failed, and **refinement did not rescue it** — the repair agent produced the same output and the loop stopped on `cycle_detected` or `no_improvement` | most of the rest |
+| Failed, then refined, then passed | rare |
+
+**Do not hide this. It is the project's own subject matter.** If the panel sees
+a run stall at 0.80 and asks whether refinement actually works, the honest and
+impressive answer is:
+
+> *"That is the question we are measuring. On this model, when the first attempt
+> is wrong, a second attempt often repeats the same mistake — the loop detects
+> that and stops instead of burning budget. It matches the direction of the
+> literature we cited: Huang et al. found refinement without external feedback
+> does not help, and Tran & Kiela found the advantage shrinks once compute is
+> held equal. We have not measured enough runs to claim that as our result yet,
+> but it is exactly what our Phase 3 benchmark is built to quantify."*
+
+That answer shows you understand your own project better than a demo that just
+happened to work.
+
 > **Honesty rule for layer 2:** when you press *Offline demo*, say so.
 > *"This one uses a scripted provider instead of the API, so the loop is visible
 > every time. Runs made this way are tagged `mock` and our metrics module
@@ -684,6 +710,10 @@ wall clock · no improvement · repeated output
 
 **If you don't know:** *"I did not work on that part — [name] did."* That is a
 complete, acceptable answer.
+
+**If a run stalls:** *"That is the question we are measuring — on this model a
+second attempt often repeats the same mistake, and the loop detects it and
+stops."* Then press **Offline demo**.
 
 **Never say:** "it can build any app" · "our architecture is novel" ·
 "the results show our system is better" *(they don't yet, and saying so is the
