@@ -56,6 +56,14 @@ If feasible=true, follow these rules exactly:
   arguments. Each MUST use a plain `assert`.
 - Tests may import from the standard library only where genuinely needed
   (e.g. math). No file access, no network, no input(), no randomness.
+- Do NOT import pytest or unittest. The harness runs your check_ functions
+  directly. To assert that a call raises, write it out:
+      def check_raises():
+          try:
+              entry_point(bad_input)
+          except ValueError:
+              return
+          assert False, "expected ValueError"
 - Cover the ordinary case, at least one boundary case, and at least one tricky
   case. Do not write tests whose expected value you are unsure of.
 - `tests` must be valid Python source, nothing else - no markdown fence, no prose.

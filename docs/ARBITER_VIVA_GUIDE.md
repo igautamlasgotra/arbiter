@@ -430,7 +430,7 @@ system and recorded what happened:
 |---|---|
 | Passed on the first attempt | about half |
 | First attempt failed, and **refinement did not rescue it** — the repair agent produced the same output and the loop stopped on `cycle_detected` or `no_improvement` | most of the rest |
-| Failed, then refined, then passed | rare |
+| Failed, then refined, then passed | rare on an arbitrary task — but the prepared task in §8.3 produced it in 2 of 3 runs |
 
 **Do not hide this. It is the project's own subject matter.** If the panel sees
 a run stall at 0.80 and asks whether refinement actually works, the honest and
@@ -453,10 +453,34 @@ happened to work.
 > refuses to count them as results."* That is true, it is in our code, and
 > saying it makes you look careful rather than caught out.
 
-### 8.3 The main demo
+### 8.3 The main demo — use this exact task
 
-**Use condition C.** It puts three distinct agents on screen — generator,
-critic, repair — which is exactly the shape the project review asked for.
+**Use condition C and this task.** We tested it repeatedly on the deployed
+system the night before the viva and it produced the full story — including the
+false accept — in most runs:
+
+> **Write compare_versions(a, b) comparing dotted version strings, returning -1,
+> 0 or 1. Segments are compared numerically, missing segments count as zero, and
+> leading zeros are ignored, so '1.0' equals '1.0.0' and '1.02' equals '1.2'.**
+
+Three live runs, same task, condition C:
+
+| Run | What happened |
+|---|---|
+| 1 | `0.75` → stalled |
+| 2 | `0.75` → critic said **PASS** → refine → `0.75` → refine → **`1.00` accepted** |
+| 3 | `0.75` → critic said **PASS** → refine → **`1.00` accepted** |
+
+**Condition C** is the right setting: it puts three distinct agents on screen —
+generator, critic, repair — which is exactly the shape the project review asked
+for, and it is the critic that produces the false accept worth pointing at.
+
+**Why this task works:** the tricky rule is that `'1.0'` must equal `'1.0.0'`.
+A first attempt usually compares segment lists directly and gets it wrong on
+that one case — one of four tests fails, giving `0.75` — and the failing test
+names the problem clearly enough for the repair agent to fix it.
+
+If it stalls, run it once more, then fall back to **Offline demo**.
 
 Say this while it runs:
 
@@ -710,6 +734,11 @@ wall clock · no improvement · repeated output
 
 **If you don't know:** *"I did not work on that part — [name] did."* That is a
 complete, acceptable answer.
+
+**Demo task (condition C):** *"Write compare_versions(a, b) comparing dotted
+version strings, returning -1, 0 or 1. Segments are compared numerically,
+missing segments count as zero, and leading zeros are ignored, so '1.0' equals
+'1.0.0' and '1.02' equals '1.2'."*
 
 **If a run stalls:** *"That is the question we are measuring — on this model a
 second attempt often repeats the same mistake, and the loop detects it and
